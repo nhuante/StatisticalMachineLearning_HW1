@@ -1,0 +1,5 @@
+"0",""
+"0","# draw the dag indicating which nodes should be controlled considering our exposure and treatment nodes"
+"0","ggdag_adjustment_set(student_features_dag, use_labels = ""label"", text = ""False"", "
+"0","                     node_size = 12, label_size = 3, stylized = TRUE)  + "
+"0","  ggtitle(""Minimal Adjustment Needed For Direct Effect"")"

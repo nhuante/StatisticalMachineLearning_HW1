@@ -1,0 +1,4 @@
+"0",""
+"0","print(adjustmentSets(my_first_dag, effect = ""direct""))"
+"1","{ y }
+"

@@ -1,0 +1,5 @@
+"0",""
+"0","# draw the dag again, identifying any collider nodes"
+"0","ggdag_collider(student_features_dag, label_size = 1.5, node_size = 12, use_labels = ""label"", text = FALSE, "
+"0","               stylized = TRUE)  + "
+"0","  ggtitle(""Colliders In DAG"")"

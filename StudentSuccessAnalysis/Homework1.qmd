@@ -1,0 +1,534 @@
+---
+title: "Homework1.qmd"
+format: html
+editor: visual
+---
+
+## Natalie Huante - Homework #1
+
+### Intro
+
+For this homework assignment, I will be using a data set from the UC Irvine Machine Learning Repository (found in the data set examples Chelsea included for this homework assignment).
+
+The report for this project includes a more in-depth discussion about the data set and the analysis. Therefore, this document will instead focus on the R code I used to create the visuals and graphs as well as the actual causal estimate analysis. Each chunk of code might have some text or comment describing what it does, but like I mentioned the in-depth discussion points will be included in the report.
+
+Side Note: I am (very) new to R, so a huge part of this assignment for me was learning how to actually apply what I understand from class into code. I know we went over the code here and there, but a lot of it went over my head at the time, so I had to spend some time getting used to it all. Any references I used can be found at the bottom of this file and under the References section of the report.
+
+### Load the Dataset
+
+First, lets load in the data set from the UCI Repository and verify that we can see the first couple rows successfully. This data set was created in relation to students who were enrolled in various undergraduate degrees and includes information known at the time of their enrollments. There are 36 features and 4424 instances in this data set (aka 36 columns and 4424 students observed).
+
+```{r}
+
+library(readr)
+
+student_data <- read_delim("data.csv", delim = ";")
+
+head(student_data)
+
+```
+
+This will give us a quick summary for each of our variables (columns) of our data set.
+
+```{r}
+summary(student_data)
+```
+
+Get the column names (I kept getting errors that certain columns couldn't be found.)
+
+```{r}
+colnames(student_data)
+```
+
+### Graphs for Describing the Dataset
+
+Some plotting to see the data visually. These are some of the plots I made to help understand the distributions of certain variables in our data and help lead us to a discussion of what to consider in our analysis.
+
+These graphs are... 1. daytime vs evening attendance
+
+```{r}
+# upload the ggplot2 library first 
+library(ggplot2)
+library(dplyr)
+
+# 1. distribution of daytime vs evening attendance
+ggplot(student_data, 
+       aes(x = `Daytime/evening attendance\t`, 
+           fill = as.factor(`Daytime/evening attendance\t`))) + 
+  geom_bar() + 
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Daytime vs Evening Attendance", 
+       x = "Daytime (1) vs Evening (0)", 
+       y = "Number of Students", 
+       fill = "Attendance")
+```
+
+2.  distribution of our target variable
+
+```{r}
+# 2. distribution of student outcome 
+ggplot(student_data, 
+       aes(x = `Target`, fill = as.factor(`Target`))) + 
+  geom_bar() + 
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Student Enrollment Outcomes", 
+       x = "Outcome", 
+       y = "Count", 
+       fill = "Outcome")
+```
+
+3.  distribution of student ages at the time of enrollment
+
+```{r}
+# 3. distribution of student ages
+ggplot(student_data, 
+       aes(x = `Age at enrollment`)) +
+  geom_histogram(binwidth = 2, fill = "cadetblue3", color = "black") +
+  stat_bin(binwidth = 2, boundary = 17, geom = "text", aes(label = paste0(..xmin.., "-", ..xmax..)), 
+           vjust = -.9, hjust = -0.25, angle = 45) +
+  labs(title = "Age Distribution at Enrollment", 
+       x = "Student Age", 
+       y = "Count") + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2)))
+```
+
+4.  distribution of student ages by their attendance type
+
+```{r}
+# 4. distribution of student ages (grouped by evening/daytime attendance)
+ggplot(student_data, 
+       aes(x = as.factor(`Daytime/evening attendance\t`), 
+           y = `Age at enrollment`)) + 
+  geom_boxplot(fill = "darkolivegreen3") + 
+  labs(title = "Age Distribution by Attendance Type", 
+       x = "Attendance Type (1 - Daytime, 0 - Evening)", 
+       y = "Age")
+```
+
+5.  distribution of student marital status with each outcome category
+
+```{r}
+# % of students in each marital status category grouped by outcome category. ex: what percentage of students who dropped out were single when enrolling or married when enrolling, etc. 
+marital_status_labels <- c("1" = "1 - Single", 
+                           "2" = "2 - Married", 
+                           "3" = "3 - Widower", 
+                           "4" = "4 - Divorced", 
+                           "5" = "5 - Fact.Un.", 
+                           "6" = "6 - Separated")
+
+marital_status_colors <- c("1" = "cadetblue3", 
+                            "2" = "darkolivegreen3", 
+                            "3" = "darkgoldenrod2", 
+                            "4" = "darkseagreen3", 
+                            "5" = "indianred3", 
+                            "6" = "lightskyblue")
+
+# Calculate proportions within each attendance type
+student_data_marital_by_outcome <- student_data %>%
+  group_by(`Target`, `Marital status`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_marital_by_outcome, 
+       aes(x = as.factor(`Target`),
+           y = percentage, 
+           fill = as.factor(`Marital status`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(y = percentage + 0.1, 
+                label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), 
+            vjust = 0.5, angle = 90, size = 3.5) +
+  labs(title = "Percentage of Marital Status within Each Outcome Category", 
+       x = "Outcome Category", 
+       Y = "Percentage", 
+       fill = "Marital Status") + 
+  #scale_x_discrete(limits = c(0, 1.3)) + 
+  scale_fill_manual(values = marital_status_colors,labels = marital_status_labels) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05)) 
+
+```
+
+6.  distribution of student marital status with each attendance type
+
+```{r}
+# % of students in each marital status category grouped by attendance type ex: what percentage of students who attend daytime classes were single when enrolling or married when enrolling, etc. 
+marital_status_labels <- c("1" = "1 - Single", 
+                           "2" = "2 - Married", 
+                           "3" = "3 - Widower", 
+                           "4" = "4 - Divorced", 
+                           "5" = "5 - Fact.Un.", 
+                           "6" = "6 - Separated")
+
+attendance_labels <- c("0" = "Evening", "1" = "Daytime")
+
+marital_status_colors <- c("1" = "cadetblue3", 
+                            "2" = "darkolivegreen3", 
+                            "3" = "darkgoldenrod2", 
+                            "4" = "darkseagreen3", 
+                            "5" = "indianred3", 
+                            "6" = "lightskyblue")
+
+# Calculate proportions within each attendance type
+student_data_marital_by_attendance <- student_data %>%
+  group_by(`Daytime/evening attendance\t`, `Marital status`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_marital_by_attendance, 
+       aes(x = as.factor(`Daytime/evening attendance\t`),
+           y = percentage, 
+           fill = as.factor(`Marital status`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(y = percentage + 0.1, 
+                label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), 
+            vjust = 0.5, angle = 90, size = 3.5) +
+  labs(title = "Percentage of Marital Status withing each Attendance Type", 
+       x = "Outcome Category", 
+       Y = "Percentage", 
+       fill = "Marital Status") + 
+  scale_x_discrete(labels = attendance_labels) + 
+  scale_fill_manual(values = marital_status_colors,labels = marital_status_labels) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05)) 
+
+```
+
+7.  distribution of students who are scholarship holders by outcome category
+
+```{r}
+# ex: what percentage of students who dropped out held a scholarship when they were enrolled
+
+# Calculate proportions within each attendance type
+student_data_schol_by_outcome <- student_data %>%
+  group_by(`Target`, `Scholarship holder`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_schol_by_outcome, 
+       aes(x = as.factor(`Target`),
+           y = percentage, 
+           fill = as.factor(`Scholarship holder`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Percentage of Student Scholarship Holders within Each Outcome Category", 
+       x = "Outcome Category", 
+       Y = "Percentage", 
+       fill = "Scholarship Holder Status") + 
+  scale_x_discrete(labels = attendance_labels) + 
+  scale_fill_manual(values = c("0" = "cadetblue3", "1" = "darkolivegreen3"), labels = c("Non-Scholarship Holder", "Scholarship Holder")) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05))
+
+```
+
+8.  distribution of students who are scholarship holders by attendance type
+
+```{r}
+# ex: what percentage of students who attended evening classes held a scholarship when they were enrolled
+attendance_labels <- c("0" = "Evening", "1" = "Daytime")
+
+# Calculate proportions within each attendance type
+student_data_schol <- student_data %>%
+  group_by(`Daytime/evening attendance\t`, `Scholarship holder`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_schol, 
+       aes(x = as.factor(`Daytime/evening attendance\t`),
+           y = percentage, 
+           fill = as.factor(`Scholarship holder`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Percentage of Student Scholarship Holders within Each Attendance Type", 
+       x = "Atendance Type", 
+       Y = "Percentage", 
+       fill = "Scholarship Holder Status") + 
+  scale_x_discrete(labels = attendance_labels) + 
+  scale_fill_manual(values = c("0" = "cadetblue3", "1" = "darkolivegreen3"), labels = c("Non-Scholarship Holder", "Scholarship Holder")) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05))
+
+```
+
+9.  distribution of students who are debtors by outcome category
+
+```{r}
+
+# Calculate proportions within each attendance type
+student_data_debtors_by_outcome <- student_data %>%
+  group_by(`Target`, `Debtor`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_debtors_by_outcome, 
+       aes(x = as.factor(`Target`),
+           y = percentage, 
+           fill = as.factor(`Debtor`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Percentage of Student Debtors within Each Attendance Type", 
+       x = "Outcome Category", 
+       Y = "Percentage", 
+       fill = "Debtor Status") + 
+  scale_x_discrete(labels = attendance_labels) + 
+  scale_fill_manual(values = c("0" = "cadetblue3", "1" = "darkolivegreen3"), labels = c("Non-Debtor", "Debtor")) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05))
+```
+
+10. distribution of students who are debtors by attendance type
+
+```{r}
+attendance_labels <- c("0" = "Evening", "1" = "Daytime")
+
+# Calculate proportions within each attendance type
+student_data_debtors <- student_data %>%
+  group_by(`Daytime/evening attendance\t`, `Debtor`) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))  # Calculate percentage within each attendance group
+
+ggplot(student_data_debtors, 
+       aes(x = as.factor(`Daytime/evening attendance\t`),
+           y = percentage, 
+           fill = as.factor(`Debtor`))) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(label = scales::percent(percentage, accuracy = 0.1)), 
+                position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Percentage of Student Debtors within Each Attendance Type", 
+       x = "Atendance Type", 
+       Y = "Percentage", 
+       fill = "Debtor Status") + 
+  scale_x_discrete(labels = attendance_labels) + 
+  scale_fill_manual(values = c("0" = "cadetblue3", "1" = "darkolivegreen3"), labels = c("Non-Debtor", "Debtor")) + 
+  theme(legend.position = "top") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05))
+
+```
+
+### DAG Setup Testing First
+
+```{r}
+# import the helpful dag library 
+
+#install.packages("dagitty")
+#install.packages("ggdag")
+
+library(dagitty)
+library(ggdag)
+library(ggplot2)
+
+# lets first define our nodes and edges
+  # lecture slides review:
+my_first_dag <- ggdag::dagify(
+  x ~ y, # x affected by y
+  y ~ z + w, # y affected by z and w
+  q ~ z + x, 
+  exposure = "x", 
+  outcome = "z" 
+)
+
+# and now lets actually draw the dag
+ggdag(my_first_dag, layout = "time_ordered") + 
+      theme_dag() + 
+      theme(legend.position = "top")
+
+print(adjustmentSets(my_first_dag, effect = "direct"))
+
+```
+
+### DAG For the Student Dataset
+
+```{r}
+# import the helpful dag libraries 
+library(dagitty)
+library(ggdag)
+library(ggplot2)
+
+# lets first define our nodes and edges
+student_features_dag <- ggdag::dagify(
+  target_outcome ~ marital_status + attendance_type + previous_qualification + nationality + 
+                  mother_qualification + father_qualification + scholarship_holder + tuition_fees_up_to_date + 
+                  debtor + educational_special_needs + mother_occupation + father_occupation + age + international, 
+  marital_status ~ age, 
+  attendance_type ~ marital_status + debtor + age, 
+  tuition_fees_up_to_date ~ debtor + scholarship_holder, 
+  father_occupation ~ father_qualification, 
+  mother_occupation ~ mother_qualification, 
+  exposure = "attendance_type", 
+  outcome = "target_outcome", 
+  labels = c(target_outcome = "Target", 
+             marital_status = "Marital", 
+             attendance_type = "Attendance", 
+             previous_qualification = "Prev. Qual.", 
+             nationality = "Nationality", 
+             mother_qualification = "Mother Qual.", 
+             father_qualification = "Father Qual.", 
+             mother_occupation = "Mother Occ.", 
+             father_occupation = "Father Occ.",
+             age = "Age", 
+             international = "International", 
+             debtor = "Debtor", 
+             scholarship_holder = "Scholarship", 
+             tuition_fees_up_to_date= "Tuition UTD", 
+             educational_special_needs = "ESN")
+)
+
+
+# and now lets actually draw the dag itself
+ggdag(student_features_dag, use_labels = "label", text = "False", 
+      node = "True", node_size = 18, label_size = 3, layout = "nicely", stylized = TRUE) +
+      theme_dag() +
+      ggtitle("Causal DAG for Student Dataset")
+
+# draw the paths from attendance_type to target_outcome neatly
+student_features_dag %>% ggdag_paths(label_size = 2, node_size = 6.5, use_labels = "label", text = FALSE, from =  "attendance_type", to = "target_outcome", layout = "nicely", stylized = TRUE) + 
+  ggtitle("Paths From Attendance Type to Outcome Category")
+
+# draw the dag again, identifying any collider nodes
+ggdag_collider(student_features_dag, label_size = 1.5, node_size = 12, use_labels = "label", text = FALSE, 
+               stylized = TRUE)  + 
+  ggtitle("Colliders In DAG")
+
+# draw the dag indicating which nodes should be controlled considering our exposure and treatment nodes
+ggdag_adjustment_set(student_features_dag, use_labels = "label", text = "False", 
+                     node_size = 12, label_size = 3, stylized = TRUE)  + 
+  ggtitle("Minimal Adjustment Needed For Direct Effect")
+
+# print out the minimal amount of nodes to control for in order to get the direct effect
+print(adjustmentSets(student_features_dag, effect = "direct"))
+
+```
+
+```{r}
+colnames(student_data)
+```
+
+### Proposal 1: GLM with Features as Covariates
+
+```{r}
+
+# transform target outcome to indicate whether the student has dropped out or not
+# student_data$Target <- ifelse(student_data$Target == "Dropout", 1, 0)
+
+
+#table(student_data$`Target`)
+
+
+# converting categorical variables to factors when necessary 
+  # this will make sure R creates dummy variables to represent each possible 
+  # category rather than treating the values numerically
+student_data$`Marital status` <- as.factor(student_data$`Marital status`)
+student_data$`Debtor` <- as.factor(student_data$`Debtor`)
+student_data$`Scholarship holder` <- as.factor(student_data$`Scholarship holder`)
+student_data$`Daytime/evening attendance\t` <- as.factor(student_data$`Daytime/evening attendance\t`)
+
+
+# run a glm on the student data (without covariates)
+glm_without_feature_covariates = glm(`Target` ~ `Daytime/evening attendance\t`, 
+                                     data = student_data, family = binomial)
+
+# run a glm on the student data (with covariates)
+glm_with_feature_covariates = glm(`Target` ~ `Daytime/evening attendance\t` + `Age at enrollment` + 
+                                    `Marital status` + `Debtor` + `Scholarship holder`, 
+                                  data = student_data, family = binomial)
+
+# output the summary for both models
+summary(glm_without_feature_covariates)
+odds_no_covariates <- exp(coef(glm_without_feature_covariates))
+odds_no_covariates
+
+summary(glm_with_feature_covariates)
+odds_with_covariates <- exp(coef(glm_with_feature_covariates))
+odds_with_covariates
+
+
+# class(student_data$`Daytime/evening attendance	`)
+# levels(student_data$`Daytime/evening attendance	`)
+```
+
+### Proposal 2: GLM with Features as Covariates & Inverse Probability Weighting
+
+Part 1 : Calculate Propensity Scores
+
+```{r}
+# GLM To Predict Attendance Type Of Each Student
+attendance_type_model <- glm(`Daytime/evening attendance\t` ~ `Age at enrollment` + `Marital status` + 
+                               `Debtor` + `Scholarship holder`, 
+                             data = student_data, family = binomial)
+
+
+# Calculate the Propensity Scores For Each Student Using the GLM Above
+  # Save the scores of each student in a new column called Propensity score
+  # predict() function generates predictions (propensity scores) from the GLM
+student_data$`Propensity score` <- predict(attendance_type_model, type = "response")
+
+# Head of data table to verify propensity scores were added successfully
+head(student_data)
+```
+
+Part 2: Calculate Weights
+
+```{r}
+
+# Calculate the Weights for each Student Using the Propensity Scored Calculated Above
+  # Save the weights of each student in a new column called Weight
+  # For students where attendance is 0 (evening group) should be the inverse of ( 1 - prop score) 
+      # because it should calculate the probability of it being in its own group 
+  # For students where attendance is 1 (daytime group) should be the inverse of just the prop score 
+      # because the prop score already is the probability of being in the treatment group (daytime group)
+student_data$`Weights` <- ifelse(student_data$`Daytime/evening attendance\t` == 1, 
+                               (1 / student_data$`Propensity score`), 
+                               (1 / (1 - student_data$`Propensity score`)))
+
+# Head of data table to verify weights were added successfully
+head(student_data)
+
+```
+
+Part 3: Pass in the Weights Calculated to the GLM Model We Created Earlier
+
+```{r}
+
+# Pass in the Weights to the Logisitic Regression Model From Earlier
+  # Each student will be weighted accordingly
+# run a glm on the student data (with covariates)
+glm_covariates_weights = glm(`Target` ~ `Daytime/evening attendance\t` + `Age at enrollment` + 
+                                    `Marital status` + `Debtor` + `Scholarship holder`, 
+                                  data = student_data, family = quasibinomial, weights = `Weights`)
+
+# output the summary for both models
+summary(glm_covariates_weights)
+
+# output the odds of the glm
+odds_covariates_weights <- exp(coef(glm_covariates_weights))
+odds_covariates_weights
+
+```
+
+### References Used
+
+-   ggdag manual
+    -   https://cran.r-project.org/web/packages/ggdag/vignettes/intro-to-ggdag.html
+-   different layouts for ggdag(layout = "")
+    -   https://thomasp85.r-universe.dev/ggraph/doc/manual.html#ggraph
+-   presentation on causal diagrams in R
+    -   https://user2020.lucymcgowan.com/02-dags.html#40
+    -   https://ggdagcand3.netlify.app/?panelset1=using-dagitty.net2#38
+-   R colors To Use
+    -   https://r-charts.com/colors/
+-   Coefficient Interpretation
+    -   https://towardsdatascience.com/a-simple-interpretation-of-logistic-regression-coefficients-e3a40a62e8cf
+    -   https://stats.oarc.ucla.edu/other/mult-pkg/faq/general/faq-how-do-i-interpret-odds-ratios-in-logistic-regression/
+-   Reddit On GLM Weights Argument
+    -   https://www.reddit.com/r/rstats/comments/6zg2f2/struggling_with_including_weights_in_a_binomial/
+-   Binomial Vs Quasibinomial Distributions
+    -   https://stats.stackexchange.com/questions/91724/what-is-quasi-binomial-distribution-in-the-context-of-glm
+    -   https://randomeffect.net/post/2020/10/12/quasi-binomial-in-r-glm/
+    -   https://stat.ethz.ch/R-manual/R-devel/library/stats/html/family.html
+-   Dr. P's Lecture Slides
+    -   https://github.com/chelseaparlett/CPSC540ParlettPelleriti/tree/main/LectureSlides

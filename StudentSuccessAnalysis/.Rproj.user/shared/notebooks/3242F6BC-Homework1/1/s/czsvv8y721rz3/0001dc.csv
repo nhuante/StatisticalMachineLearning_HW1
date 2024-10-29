@@ -1,0 +1,4 @@
+"0",""
+"0","# draw the paths from attendance_type to target_outcome neatly"
+"0","student_features_dag %>% ggdag_paths(label_size = 2, node_size = 6.5, use_labels = ""label"", text = FALSE, from =  ""attendance_type"", to = ""target_outcome"", layout = ""nicely"", stylized = TRUE) + "
+"0","  ggtitle(""Paths From Attendance Type to Outcome Category"")"
