@@ -67,3 +67,7 @@ editor: visual
 -   Dr. P's Lecture Slides
 
     -   https://github.com/chelseaparlett/CPSC540ParlettPelleriti/tree/main/LectureSlides
+
+-   Dataset
+
+    -   Realinho, Valentim, et al. "Predict Students' Dropout and Academic Success." UCI Machine Learning Repository, 2021, https://doi.org/10.24432/C5MC89.
